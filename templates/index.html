@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>UHI Monitoring Dashboard | Nanda Undiksha</title>
+    
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
+    
+    <style>
+        /* Dasar & Layout */
+        body { font-family: 'Inter', sans-serif; margin: 0; display: flex; flex-direction: column; height: 100vh; background: #f4f7f6; }
+        header { background: #2c3e50; color: white; padding: 1rem 2rem; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+        .container { display: flex; flex: 1; overflow: hidden; }
+        
+        /* Tipografi Header */
+        .header-title { font-weight: 600; font-size: 1.2rem; }
+        .header-author { font-size: 0.9rem; }
+
+        /* Sidebar & Map */
+        #sidebar { width: 350px; background: white; padding: 2rem; border-right: 1px solid #ddd; overflow-y: auto; }
+        #map { flex: 1; background: #e5e3df; }
+
+        /* Komponen UI */
+        .btn-analyze { background: #e67e22; color: white; border: none; padding: 0.8rem 1.5rem; border-radius: 5px; cursor: pointer; font-weight: 600; width: 100%; transition: 0.3s; margin-bottom: 1rem; }
+        .btn-analyze:hover { background: #d35400; }
+        
+        /* Status & Results */
+        #loading { display: none; margin-top: 1rem; color: #e67e22; font-weight: 600; }
+        #results { display: none; }
+
+        .stats-card { background: #f9f9f9; border-radius: 8px; padding: 1rem; margin-top: 1.5rem; border-left: 4px solid #e67e22; }
+        
+        /* Text Suhu & Metadata */
+        .temp-display { font-size: 1.5rem; font-weight: 600; color: #2c3e50; }
+        .label-small { font-size: 0.85rem; color: #666; display: block; margin-bottom: 5px; }
+        
+        /* Refactor Baris 65: Metadata Container */
+        .metadata-container { margin-top: 1rem; font-size: 0.85rem; line-height: 1.6; color: #444; }
+
+        /* Legenda Peta */
+        .legend { background: white; padding: 10px; line-height: 18px; color: #555; border-radius: 5px; box-shadow: 0 0 15px rgba(0,0,0,0.2); }
+        .legend i { width: 18px; height: 18px; float: left; margin-right: 8px; opacity: 0.7; }
+    </style>
+</head>
+<body>
+
+<header>
+    <div class="header-title">🌡️ Urban Heat Island Analyzer</div>
+    <div class="header-author">By: Gede Ananda Karunia Putra</div>
+</header>
+
+<div class="container">
+    <div id="sidebar">
+        <h3>Analisis Area</h3>
+        <p class="label-small">Klik tombol di bawah untuk menganalisis suhu permukaan di area Singaraja menggunakan data Landsat 8 terbaru.</p>
+        
+        <button class="btn-analyze" id="analyzeBtn">Mulai Analisis Satelit</button>
+
+        <div id="loading">⏳ Memproses data dari NASA/USGS...</div>
+
+        <div id="results">
+            <div class="stats-card">
+                <span class="label-small">Rata-rata Suhu Permukaan</span>
+                <div id="avgTemp" class="temp-display">-- °C</div>
+            </div>
+            
+            <div class="metadata-container"> 
+                <strong>Tanggal Akuisisi:</strong> <span id="acqDate">--</span><br>
+                <strong>Tutupan Awan:</strong> <span id="cloudCover">--</span>
+            </div>
+        </div>
+    </div>
+    
+    <div id="map"></div>
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+    // Inisialisasi Peta (Center di Singaraja)
+    const map = L.map('map').setView([-8.11, 115.09], 13);
+    
+    // Base Layer OpenStreetMap
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '&copy; OpenStreetMap contributors'
+    }).addTo(map);
+
+    let uhiLayer;
+
+    // Event Listener untuk Tombol Analisis
+    document.getElementById('analyzeBtn').addEventListener('click', async () => {
+        const loading = document.getElementById('loading');
+        const results = document.getElementById('results');
+        
+        loading.style.display = 'block';
+        results.style.display = 'none';
+
+        try {
+            const response = await fetch('/api/v1/analyze-uhi', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    bbox: [115.07, -8.15, 115.13, -8.09], // Koordinat Singaraja
+                    date_start: "2025-01-01",
+                    date_end: "2026-03-28"
+                })
+            });
+
+            const data = await response.json();
+            
+            if (data.status === "success") {
+                // Update Statistik di UI
+                document.getElementById('avgTemp').innerText = data.results.average_temp_celsius + " °C";
+                document.getElementById('acqDate').innerText = data.results.acquisition_date;
+                document.getElementById('cloudCover').innerText = data.results.cloud_cover;
+                
+                // Update Layer Peta
+                if (uhiLayer) map.removeLayer(uhiLayer);
+                uhiLayer = L.tileLayer(data.results.map_url, { 
+                    opacity: 0.7,
+                    attribution: 'Google Earth Engine - Landsat 8'
+                }).addTo(map);
+                
+                results.style.display = 'block';
+            } else {
+                alert("Error dari Server: " + data.message);
+            }
+        } catch (error) {
+            console.error(error);
+            alert("Gagal memuat data. Pastikan Backend Flask Anda sudah menyala.");
+        } finally {
+            loading.style.display = 'none';
+        }
+    });
+
+    // Tambahkan Legenda Warna Peta
+    const legend = L.control({position: 'bottomright'});
+    legend.onAdd = function (map) {
+        const div = L.DomUtil.create('div', 'legend');
+        div.innerHTML += '<strong>Suhu (°C)</strong><br>';
+        div.innerHTML += '<i style="background: #0000FF"></i> 25 (Sejuk)<br>';
+        div.innerHTML += '<i style="background: #00FF00"></i> 30<br>';
+        div.innerHTML += '<i style="background: #FFFF00"></i> 35<br>';
+        div.innerHTML += '<i style="background: #FF0000"></i> 40+ (Panas)<br>';
+        return div;
+    };
+    legend.addTo(map);
+</script>
+</body>
+</html>
