@@ -11,6 +11,7 @@
   "dependencies": {
     "@geoman-io/leaflet-geoman-free": "^2.19.3",
     "autoprefixer": "^10.4.27",
+    "js-cookie": "^3.0.5",
     "leaflet": "^1.9.4",
     "leaflet-geosearch": "^4.4.0",
     "next": "16.2.3",

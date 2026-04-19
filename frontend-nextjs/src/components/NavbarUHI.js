@@ -2,9 +2,26 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { useEffect, useState } from 'react'; // Tambahkan useState & useEffect
+import Cookies from 'js-cookie'; // Import Cookies untuk logic logout
 
 export default function NavbarUHI() {
   const pathname = usePathname();
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+
+  // Cek status login saat navbar dimuat
+  useEffect(() => {
+    const token = Cookies.get('token');
+    if (token) {
+      setIsLoggedIn(true);
+    }
+  }, []);
+
+  const handleLogout = () => {
+    Cookies.remove('token'); // Hapus tiket
+    localStorage.removeItem('user'); // Hapus data user
+    window.location.href = '/login'; // Tendang balik ke login
+  };
 
   const navLinks = [
     { name: 'Home', href: '/' },
@@ -14,7 +31,6 @@ export default function NavbarUHI() {
 
   return (
     <nav className="sticky top-0 z-50 w-full bg-white/80 backdrop-blur-md border-b border-slate-100">
-      {/* Mengubah max-w-7xl mx-auto menjadi w-full agar konten mentok ke pinggir */}
       <div className="w-full px-6 md:px-10 h-20 flex items-center justify-between">
         
         {/* Logo & Brand - Mentok Kiri */}
@@ -44,17 +60,28 @@ export default function NavbarUHI() {
           ))}
         </div>
 
-        {/* Action Buttons - Mentok Kanan */}
+        {/* Action Buttons - Mentok Kanan (LOGIC UPDATED) */}
         <div className="flex items-center gap-4">
-          <button className="hidden sm:block text-sm font-bold text-slate-600 hover:text-slate-900 px-4 py-2">
-            Sign In
-          </button>
-          <Link
-            href="/dashboard"
-            className="px-6 py-2.5 bg-blue-600 text-white text-sm font-black rounded-xl shadow-md shadow-blue-100 hover:bg-blue-700 hover:shadow-lg transition-all active:scale-95"
-          >
-            Sign Up
-          </Link>
+          {!isLoggedIn ? (
+            <>
+              <Link href="/login" className="hidden sm:block text-sm font-bold text-slate-600 hover:text-slate-900 px-4 py-2">
+                Sign In
+              </Link>
+              <Link
+                href="/login"
+                className="px-6 py-2.5 bg-blue-600 text-white text-sm font-black rounded-xl shadow-md shadow-blue-100 hover:bg-blue-700 hover:shadow-lg transition-all active:scale-95"
+              >
+                Get Started
+              </Link>
+            </>
+          ) : (
+            <button
+              onClick={handleLogout}
+              className="px-6 py-2.5 bg-blue-50 text-blue-600 text-xs font-black uppercase tracking-widest rounded-xl border border-blue-100 hover:bg-blue-600 hover:text-white transition-all active:scale-95 shadow-sm"
+            >
+              Logout
+            </button>
+          )}
         </div>
       </div>
     </nav>
