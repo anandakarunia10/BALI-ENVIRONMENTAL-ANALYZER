@@ -2,7 +2,11 @@
 
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
-use App\Http\Controllers\UhiController; // <-- Jangan sampai ketinggalan!
+use App\Http\Controllers\UhiController; 
+use App\Http\Controllers\Api\HistoryController;
 
-// Daftarkan route kamu di sini
+
 Route::get('/uhi-analysis', [UhiController::class, 'getAnalysis']);
+Route::get('/history', [HistoryController::class, 'index']);
+Route::post('/history', [HistoryController::class, 'store']);
+Route::delete('/history/{id}', [HistoryController::class, 'destroy']);

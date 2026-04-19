@@ -1,4 +1,6 @@
-import { MapContainer, TileLayer, LayersControl, useMap, ZoomControl, useMapEvents, Marker, Popup } from 'react-leaflet';
+"use client";
+
+import { MapContainer, TileLayer, LayersControl, useMap, ZoomControl, useMapEvents, Marker, Popup, Circle } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
 import React, { useEffect, useState } from 'react';
@@ -24,7 +26,7 @@ function MapEvents({ onMapClick }) {
   useMapEvents({
     click: (e) => {
       if (onMapClick) {
-        onMapClick(e.latlng); // Mengirim {lat, lng} ke parent
+        onMapClick(e.latlng);
       }
     },
   });
@@ -49,8 +51,8 @@ function MouseCoordinates() {
   );
 }
 
-// --- 🔍 KOMPONEN SEARCH FIELD ---
-function SearchField() {
+// --- 🔍 KOMPONEN SEARCH FIELD (Sinkron ke Dashboard) ---
+function SearchField({ onLocationFound }) {
   const map = useMap();
 
   useEffect(() => {
@@ -61,7 +63,7 @@ function SearchField() {
     const searchControl = new GeoSearchControl({
       provider: provider,
       style: 'bar',
-      showMarker: true,
+      showMarker: false, 
       showPopup: false,
       autoClose: true,
       retainZoomLevel: false,
@@ -75,8 +77,18 @@ function SearchField() {
     });
 
     map.addControl(searchControl);
+
+    map.on('geosearch/showlocation', (result) => {
+        if (onLocationFound) {
+            onLocationFound({
+                lat: result.location.y,
+                lng: result.location.x
+            });
+        }
+    });
+
     return () => map.removeControl(searchControl);
-  }, [map]);
+  }, [map, onLocationFound]);
 
   return null;
 }
@@ -129,7 +141,8 @@ function ChangeView({ center, onPolygonCreated }) {
 }
 
 // --- 🌍 KOMPONEN UTAMA MAP ---
-export default function Map({ tileUrl, center, onPolygonCreated, onMapClick }) {
+// Tambahkan prop 'radius' agar bisa dibaca oleh komponen Circle
+export default function Map({ tileUrl, center, onPolygonCreated, onMapClick, onLocationFound, radius }) {
   const { BaseLayer, Overlay } = LayersControl;
 
   return (
@@ -141,21 +154,35 @@ export default function Map({ tileUrl, center, onPolygonCreated, onMapClick }) {
         zoomControl={false}
       >
         <MapEvents onMapClick={onMapClick} />
-        
-        <SearchField />
+        <SearchField onLocationFound={onLocationFound} />
         <ChangeView center={center} onPolygonCreated={onPolygonCreated} />
         <MouseCoordinates />
         
-        {/* 📍 MARKER PENANDA LOKASI AKTIF */}
         {center && (
-          <Marker position={center}>
-            <Popup>
-              <div className="text-[10px] font-bold">
-                Titik Analisis:<br/>
-                {center[0].toFixed(5)}, {center[1].toFixed(5)}
-              </div>
-            </Popup>
-          </Marker>
+          <>
+            {/* ✅ UPDATED: VISUALISASI RADIUS (Circle) */}
+            <Circle 
+              center={center}
+              radius={radius * 1000} // Konversi KM ke Meter
+              pathOptions={{ 
+                color: '#2563eb', 
+                fillColor: '#2563eb', 
+                fillOpacity: 0.15, 
+                weight: 2,
+                dashArray: '5, 10' 
+              }}
+            />
+
+            {/* 📍 MARKER PENANDA LOKASI AKTIF */}
+            <Marker position={center}>
+              <Popup>
+                <div className="text-[10px] font-bold">
+                  Titik Analisis:<br/>
+                  {center[0].toFixed(5)}, {center[1].toFixed(5)}
+                </div>
+              </Popup>
+            </Marker>
+          </>
         )}
 
         <ZoomControl position="bottomright" />
@@ -167,18 +194,10 @@ export default function Map({ tileUrl, center, onPolygonCreated, onMapClick }) {
               attribution='&copy; Esri'
             />
           </BaseLayer>
-
           <BaseLayer name="Street View (Standard)">
             <TileLayer
               url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
               attribution='&copy; OpenStreetMap'
-            />
-          </BaseLayer>
-
-          <BaseLayer name="Dark Mode (Night View)">
-            <TileLayer
-              url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
-              attribution='&copy; CARTO'
             />
           </BaseLayer>
 
